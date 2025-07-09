@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Info Viewer - zmniejszający się tekst</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background-color: black;
+    color: #0f0;
+    font-family: monospace;
+    overflow: hidden; /* blokujemy scroll */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  #container {
+    max-width: 95vw;
+    max-height: 95vh;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.2em;
+    font-size: 80px; /* startowy rozmiar liter */
+  }
+  .line {
+    opacity: 0;
+    transition: opacity 0.8s ease-in;
+    margin: 4px 0;
+  }
+  .visible {
+    opacity: 1;
+  }
+  #intro {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  #enter {
+    font-size: 3em;
+    border: 1px solid #0f0;
+    padding: 15px 30px;
+    cursor: pointer;
+    user-select: none;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div id="intro">
+  <div>Click to Enter</div>
+  <div id="enter" tabindex="0">ENTER</div>
+</div>
+
+<div id="container"></div>
+
+<audio id="bg-music" loop>
+  <source src="covet - basement (slowed + reverb).mp3" type="audio/mpeg" />
+</audio>
+
+<script>
+  const intro = document.getElementById('intro');
+  const enter = document.getElementById('enter');
+  const container = document.getElementById('container');
+  const audio = document.getElementById('bg-music');
+
+  const delay = ms => new Promise(res => setTimeout(res, ms));
+
+  let currentFontSize = 80; // px
+  const fontSizeStep = 3; // px, o ile zmniejszamy przy każdej linii
+  const minFontSize = 20; // px minimalny rozmiar, żeby nie zrobiło się za małe
+
+async function addLine(text, delayMs = 400) {
+  const line = document.createElement('div');
+  line.classList.add('line');
+  line.textContent = text;
+  container.appendChild(line);
+
+  await delay(50); // minimalny delay przed pokazaniem
+  line.classList.add('visible');
+
+  await delay(delayMs);
+
+    // zmniejszamy font-size całego kontenera, ale nie mniej niż minFontSize
+    currentFontSize = Math.max(minFontSize, currentFontSize - fontSizeStep);
+    container.style.fontSize = currentFontSize + 'px';
+  }
+
+  async function showInfo() {
+  await addLine("=== NETWORK & LOCATION ===");
+
+  try {
+    const res = await fetch("https://ipapi.co/json");
+    const data = await res.json();
+    await addLine("IP: " + data.ip);
+    await addLine("Country: " + data.country_name);
+    await addLine("Region: " + data.region);
+    await addLine("City: " + data.city);
+    await addLine("ZIP Code: " + data.postal);
+    await addLine("Latitude: " + data.latitude);
+    await addLine("Longitude: " + data.longitude);
+    await addLine("ASN: " + data.asn);
+    await addLine("ISP: " + data.org);
+    await addLine("Timezone: " + data.timezone);
+    await addLine("UTC Offset: " + data.utc_offset);
+  } catch {
+    await addLine("Location info: unavailable");
+  }
+
+  await addLine("=== SYSTEM INFO ===");
+
+  await addLine("Time: " + new Date().toLocaleString());
+  await addLine("User-Agent: " + navigator.userAgent);
+  await addLine("Language: " + navigator.language);
+  await addLine("Languages: " + navigator.languages.join(", "));
+  await addLine("Platform: " + navigator.platform);
+  await addLine("Cookies Enabled: " + navigator.cookieEnabled);
+  await addLine("Online: " + navigator.onLine);
+  await addLine("Do Not Track: " + navigator.doNotTrack);
+
+  // Screen info
+  await addLine("Screen Width: " + screen.width);
+  await addLine("Screen Height: " + screen.height);
+  await addLine("Screen Available Width: " + screen.availWidth);
+  await addLine("Screen Available Height: " + screen.availHeight);
+  await addLine("Screen Color Depth: " + screen.colorDepth);
+  await addLine("Screen Pixel Depth: " + screen.pixelDepth);
+  await addLine("Device Pixel Ratio: " + window.devicePixelRatio);
+
+  // Window info
+  await addLine("Window Inner Width: " + window.innerWidth);
+  await addLine("Window Inner Height: " + window.innerHeight);
+  await addLine("Window Outer Width: " + window.outerWidth);
+  await addLine("Window Outer Height: " + window.outerHeight);
+
+  // Orientation info
+  const orientation = screen.orientation || {};
+  await addLine("Screen Orientation Type: " + (orientation.type || "N/A"));
+  await addLine("Screen Orientation Angle: " + (orientation.angle !== undefined ? orientation.angle : "N/A"));
+
+  // Hardware concurrency & memory
+  await addLine("CPU Threads: " + (navigator.hardwareConcurrency || "N/A"));
+  await addLine("Device Memory: " + (navigator.deviceMemory ? navigator.deviceMemory + " GB" : "Unknown"));
+
+  // GPU info
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+  let gpuVendor = "Unknown";
+  let gpuRenderer = "Unknown";
+  if (gl) {
+    const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+    if (debugInfo) {
+      gpuVendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+      gpuRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    }
+  }
+  await addLine("GPU Vendor: " + gpuVendor);
+  await addLine("GPU Renderer: " + gpuRenderer);
+
+  // Connection info
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
+  await addLine("Network Effective Type: " + (connection.effectiveType || "N/A"));
+  await addLine("Downlink Speed (Mbps): " + (connection.downlink || "N/A"));
+  await addLine("RTT (ms): " + (connection.rtt || "N/A"));
+  await addLine("Save Data Mode: " + (connection.saveData ? "Yes" : "No"));
+  await addLine("Connection Type: " + (connection.type || "N/A"));
+
+  // Battery info (async)
+  if (navigator.getBattery) {
+    try {
+      const battery = await navigator.getBattery();
+      await addLine("Battery Charging: " + (battery.charging ? "Yes" : "No"));
+      await addLine("Battery Level: " + Math.round(battery.level * 100) + "%");
+      await addLine("Battery Charging Time (s): " + battery.chargingTime);
+      await addLine("Battery Discharging Time (s): " + battery.dischargingTime);
+    } catch {
+      await addLine("Battery info: unavailable");
+    }
+  } else {
+    await addLine("Battery info: not supported");
+  }
+
+  // Touch and input devices
+  await addLine("Max Touch Points: " + (navigator.maxTouchPoints || 0));
+  await addLine("Pointer Type: " + (window.matchMedia("(pointer:fine)").matches ? "Fine (mouse)" : (window.matchMedia("(pointer:coarse)").matches ? "Coarse (touch)" : "None")));
+  await addLine("Hover Capability: " + (window.matchMedia("(hover:hover)").matches ? "Yes" : "No"));
+
+  // Clipboard API support
+  await addLine("Clipboard API Supported: " + ("clipboard" in navigator ? "Yes" : "No"));
+
+  // WebGL support
+  await addLine("WebGL Supported: " + (gl ? "Yes" : "No"));
+
+  // Storage API and quota
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      const {quota, usage} = await navigator.storage.estimate();
+      await addLine(`Storage Quota: ${quota} bytes`);
+      await addLine(`Storage Usage: ${usage} bytes`);
+    } catch {
+      await addLine("Storage estimate: unavailable");
+    }
+  } else {
+    await addLine("Storage API: not supported");
+  }
+
+  // Local and Session Storage usage (rough estimation)
+  try {
+    await addLine("localStorage Used: " + JSON.stringify(localStorage).length + " bytes");
+  } catch {
+    await addLine("localStorage: access denied");
+  }
+  try {
+    await addLine("sessionStorage Used: " + JSON.stringify(sessionStorage).length + " bytes");
+  } catch {
+    await addLine("sessionStorage: access denied");
+  }
+
+  // Timezone info
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await addLine("Timezone (Intl API): " + tz);
+  } catch {
+    await addLine("Timezone info: unavailable");
+  }
+
+  // Media Devices
+  if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput').length;
+      const audioInputs = devices.filter(d => d.kind === 'audioinput').length;
+      const audioOutputs = devices.filter(d => d.kind === 'audiooutput').length;
+      await addLine("Video Input Devices: " + videoInputs);
+      await addLine("Audio Input Devices: " + audioInputs);
+      await addLine("Audio Output Devices: " + audioOutputs);
+    } catch {
+      await addLine("Media devices info: unavailable");
+    }
+  } else {
+    await addLine("Media devices API: not supported");
+  }
+
+  // Online/offline events support
+  await addLine("Online Event Supported: " + ("ononline" in window ? "Yes" : "No"));
+  await addLine("Offline Event Supported: " + ("onoffline" in window ? "Yes" : "No"));
+
+  // Keyboard API support
+  await addLine("Hardware Keyboard Present: " + (navigator.keyboard ? "Yes" : "No"));
+
+  // Service Worker Support
+  await addLine("Service Worker Supported: " + ('serviceWorker' in navigator ? "Yes" : "No"));
+
+  // Fullscreen API support and state
+  await addLine("Fullscreen API Supported: " + (document.fullscreenEnabled ? "Yes" : "No"));
+  await addLine("Fullscreen Active: " + (document.fullscreenElement ? "Yes" : "No"));
+
+  // WebRTC support (basic check)
+  await addLine("WebRTC Supported: " + (window.RTCPeerConnection ? "Yes" : "No"));
+
+  // WebAuthn support
+  await addLine("WebAuthn Supported: " + (window.PublicKeyCredential ? "Yes" : "No"));
+
+  // Geolocation API
+  if ("geolocation" in navigator) {
+    await addLine("Geolocation Supported: Yes");
+    // Optional: Fetch current position once
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 5000});
+      });
+      await addLine(`Current Position: lat ${pos.coords.latitude.toFixed(4)}, lon ${pos.coords.longitude.toFixed(4)}`);
+      await addLine(`Accuracy: ±${pos.coords.accuracy} meters`);
+      await addLine(`Altitude: ${pos.coords.altitude || "N/A"}`);
+      await addLine(`Altitude Accuracy: ${pos.coords.altitudeAccuracy || "N/A"}`);
+      await addLine(`Heading: ${pos.coords.heading || "N/A"}`);
+      await addLine(`Speed: ${pos.coords.speed || "N/A"}`);
+    } catch {
+      await addLine("Current position: unavailable");
+    }
+  } else {
+    await addLine("Geolocation Supported: No");
+  }
+
+  // Network Information API (extra info if available)
+  if (connection) {
+    await addLine("Network Downlink Max: " + (connection.downlinkMax || "N/A"));
+    await addLine("Network Save Data: " + (connection.saveData ? "Yes" : "No"));
+  }
+
+  // Performance API info (load times)
+  if (performance && performance.timing) {
+    const timing = performance.timing;
+    await addLine(`Page Load Time: ${timing.loadEventEnd - timing.navigationStart} ms`);
+    await addLine(`DOM Content Loaded: ${timing.domContentLoadedEventEnd - timing.navigationStart} ms`);
+    await addLine(`Response Start: ${timing.responseStart - timing.navigationStart} ms`);
+  }
+
+  // Navigator Permissions API (check common permissions)
+  if (navigator.permissions && navigator.permissions.query) {
+    const permissionsToCheck = ['geolocation', 'notifications', 'camera', 'microphone', 'clipboard-read', 'clipboard-write'];
+    for (const name of permissionsToCheck) {
+      try {
+        const status = await navigator.permissions.query({name});
+        await addLine(`Permission ${name}: ${status.state}`);
+      } catch {
+        await addLine(`Permission ${name}: unavailable`);
+      }
+    }
+  } else {
+    await addLine("Permissions API: not supported");
+  }
+}
+
+  
+
+  function startApp() {
+    intro.style.display = 'none';
+    container.style.display = 'block';
+    audio.play().catch(() => console.warn("Autoplay prevented"));
+    showInfo();
+  }
+
+  enter.addEventListener('click', startApp);
+  enter.addEventListener('keydown', e => {
+    if (e.key === 'Enter') startApp();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && intro.style.display !== 'none') startApp();
+  });
+</script>
+
+</body>
+</html>
